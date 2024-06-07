@@ -57,8 +57,12 @@ pub fn build(b: *std.Build) !void {
 
     lib.addIncludePath(imgui_dep.path("."));
 
-    for (files.items) |file| {
-        lib.addCSourceFile(.{ .file = .{ .cwd_relative = file }, .flags = flags.items });
+    for (files.items, 0..) |file, i| {
+        if (i == 0) {
+            lib.addCSourceFile(.{ .file = b.path(file), .flags = flags.items });
+        } else {
+            lib.addCSourceFile(.{ .file = .{ .cwd_relative = file }, .flags = flags.items });
+        }
     }
 
     b.installArtifact(lib);
