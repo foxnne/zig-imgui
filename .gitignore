@@ -9,6 +9,8 @@
 # Cheers!
 # -andrewrk
 
+.zig-cache/
+.zig-out/
 zig-cache/
 zig-out/
 /release/
