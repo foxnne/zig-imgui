@@ -15,7 +15,7 @@ pub fn build(b: *std.Build) !void {
     });
 
     const module = b.addModule("zig-imgui", .{
-        .root_source_file = .{ .path = "src/imgui.zig" },
+        .root_source_file = b.path("src/imgui.zig"),
         .imports = &.{
             .{ .name = "mach", .module = mach_dep.module("mach") },
         },
@@ -38,11 +38,11 @@ pub fn build(b: *std.Build) !void {
 
     try files.appendSlice(&.{
         "src/cimgui.cpp",
-        imgui_dep.path("imgui.cpp").getPath(b),
-        imgui_dep.path("imgui_widgets.cpp").getPath(b),
-        imgui_dep.path("imgui_tables.cpp").getPath(b),
-        imgui_dep.path("imgui_draw.cpp").getPath(b),
-        imgui_dep.path("imgui_demo.cpp").getPath(b),
+        imgui_dep.builder.path("imgui.cpp").getPath(b),
+        imgui_dep.builder.path("imgui_widgets.cpp").getPath(b),
+        imgui_dep.builder.path("imgui_tables.cpp").getPath(b),
+        imgui_dep.builder.path("imgui_draw.cpp").getPath(b),
+        imgui_dep.builder.path("imgui_demo.cpp").getPath(b),
     });
 
     if (use_freetype) {
@@ -58,7 +58,7 @@ pub fn build(b: *std.Build) !void {
     lib.addIncludePath(imgui_dep.path("."));
 
     for (files.items) |file| {
-        lib.addCSourceFile(.{ .file = .{ .path = file }, .flags = flags.items });
+        lib.addCSourceFile(.{ .file = .{ .cwd_relative = file }, .flags = flags.items });
     }
 
     b.installArtifact(lib);
@@ -84,7 +84,7 @@ pub fn build(b: *std.Build) !void {
     // Generator
     const generator_exe = b.addExecutable(.{
         .name = "mach-imgui-generator",
-        .root_source_file = .{ .path = "src/generate.zig" },
+        .root_source_file = b.path("src/generate.zig"),
         .target = target,
         .optimize = optimize,
     });
