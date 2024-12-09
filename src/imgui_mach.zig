@@ -1,9 +1,10 @@
 const std = @import("std");
 const imgui = @import("imgui.zig");
-const core = @import("mach").core;
+const Core = @import("mach").Core;
 const gpu = @import("mach").gpu;
 
 var allocator: std.mem.Allocator = undefined;
+var core: *Core = undefined;
 
 // ------------------------------------------------------------------------------------------------
 // Public API
@@ -11,7 +12,7 @@ var allocator: std.mem.Allocator = undefined;
 
 pub const InitOptions = struct {
     max_frames_in_flight: u32 = 3,
-    color_format: ?gpu.Texture.Format = null, // uses swap chain format if null
+    color_format: gpu.Texture.Format, // uses swap chain format if null
     depth_stencil_format: gpu.Texture.Format = .undefined,
     mag_filter: gpu.FilterMode = .linear,
     min_filter: gpu.FilterMode = .linear,
@@ -19,11 +20,13 @@ pub const InitOptions = struct {
 };
 
 pub fn init(
+    core_: *Core,
     allocator_: std.mem.Allocator,
     device: *gpu.Device,
     options: InitOptions,
 ) !void {
     allocator = allocator_;
+    core = core_;
 
     var io = imgui.getIO();
     std.debug.assert(io.backend_platform_user_data == null);
@@ -53,7 +56,7 @@ pub fn newFrame() !void {
     try BackendRendererData.get().newFrame();
 }
 
-pub fn processEvent(event: core.Event) bool {
+pub fn processEvent(event: Core.Event) bool {
     return BackendPlatformData.get().processEvent(event);
 }
 
@@ -107,7 +110,8 @@ const BackendPlatformData = struct {
         bd.setDisplaySizeAndScale();
 
         // DeltaTime
-        io.delta_time = if (core.delta_time > 0.0) core.delta_time else 1.0e-6;
+
+        io.delta_time = if (core.frame.delta_time) |dt| dt.* else 1.0e-6;
 
         // WantSetMousePos - TODO
 
@@ -116,17 +120,17 @@ const BackendPlatformData = struct {
             const imgui_cursor = imgui.getMouseCursor();
 
             if (io.mouse_draw_cursor or imgui_cursor == imgui.MouseCursor_None) {
-                core.setCursorMode(.hidden);
+                //core.setCursorMode(.hidden);
             } else {
-                core.setCursorMode(.normal);
-                core.setCursorShape(machCursorShape(imgui_cursor));
+                //core.setCursorMode(.normal);
+                //core.setCursorShape(machCursorShape(imgui_cursor));
             }
         }
 
         // Gamepads - TODO
     }
 
-    pub fn processEvent(bd: *BackendPlatformData, event: core.Event) bool {
+    pub fn processEvent(bd: *BackendPlatformData, event: Core.Event) bool {
         _ = bd;
         var io = imgui.getIO();
         switch (event) {
@@ -168,9 +172,9 @@ const BackendPlatformData = struct {
                 io.addMouseWheelEvent(data.xoffset, data.yoffset);
                 return true;
             },
-            .joystick_connected => {},
-            .joystick_disconnected => {},
-            .framebuffer_resize => {},
+            //.joystick_connected => {},
+            //.joystick_disconnected => {},
+            //.framebuffer_resize => {},
             .focus_gained => {
                 io.addFocusEvent(true);
                 return true;
@@ -182,12 +186,13 @@ const BackendPlatformData = struct {
             .close => {},
 
             // TODO - mouse enter/leave?
+            else => {},
         }
 
         return false;
     }
 
-    fn addKeyMods(mods: core.KeyMods) void {
+    fn addKeyMods(mods: Core.KeyMods) void {
         var io = imgui.getIO();
         io.addKeyEvent(imgui.Mod_Ctrl, mods.control);
         io.addKeyEvent(imgui.Mod_Shift, mods.shift);
@@ -199,25 +204,29 @@ const BackendPlatformData = struct {
         _ = bd;
         var io = imgui.getIO();
 
-        // DisplaySize
-        const window_size = core.size();
-        const w: f32 = @floatFromInt(window_size.width);
-        const h: f32 = @floatFromInt(window_size.height);
-        const display_w: f32 = @floatFromInt(core.descriptor.width);
-        const display_h: f32 = @floatFromInt(core.descriptor.height);
+        var windows = core.windows.slice();
+        while (windows.next()) |window_id| {
+            const window = core.windows.getValue(window_id);
 
-        io.display_size = imgui.Vec2{ .x = w, .y = h };
+            // DisplaySize
+            const w: f32 = @floatFromInt(window.width);
+            const h: f32 = @floatFromInt(window.height);
+            const display_w: f32 = @floatFromInt(window.width);
+            const display_h: f32 = @floatFromInt(window.height);
 
-        // DisplayFramebufferScale
-        if (w > 0 and h > 0)
-            io.display_framebuffer_scale = imgui.Vec2{ .x = display_w / w, .y = display_h / h };
+            io.display_size = imgui.Vec2{ .x = w, .y = h };
+
+            // DisplayFramebufferScale
+            if (w > 0 and h > 0)
+                io.display_framebuffer_scale = imgui.Vec2{ .x = display_w / w, .y = display_h / h };
+        }
     }
 
-    fn imguiMouseButton(button: core.MouseButton) i32 {
+    fn imguiMouseButton(button: Core.MouseButton) i32 {
         return @intFromEnum(button);
     }
 
-    fn imguiKey(key: core.Key) imgui.Key {
+    fn imguiKey(key: Core.Key) imgui.Key {
         return switch (key) {
             .a => imgui.Key_A,
             .b => imgui.Key_B,
@@ -343,10 +352,11 @@ const BackendPlatformData = struct {
             .grave => imgui.Key_GraveAccent,
 
             .unknown => imgui.Key_None,
+            else => imgui.Key_None,
         };
     }
 
-    fn machCursorShape(imgui_cursor: imgui.MouseCursor) core.CursorShape {
+    fn machCursorShape(imgui_cursor: imgui.MouseCursor) Core.CursorShape {
         return switch (imgui_cursor) {
             imgui.MouseCursor_Arrow => .arrow,
             imgui.MouseCursor_TextInput => .ibeam,
@@ -397,7 +407,7 @@ const BackendRendererData = struct {
         return .{
             .device = device,
             .queue = device.getQueue(),
-            .color_format = options.color_format orelse core.descriptor.format,
+            .color_format = options.color_format,
             .depth_stencil_format = options.depth_stencil_format,
             .mag_filter = options.mag_filter,
             .min_filter = options.min_filter,
@@ -580,15 +590,20 @@ const BackendRendererData = struct {
             };
             bd.queue.writeBuffer(device_resources.uniforms, 0, &[_]Uniforms{uniforms});
 
-            const width: f32 = @floatFromInt(core.descriptor.width);
-            const height: f32 = @floatFromInt(core.descriptor.height);
-            const index_format: gpu.IndexFormat = if (@sizeOf(imgui.DrawIdx) == 2) .uint16 else .uint32;
+            var windows = core.windows.slice();
+            while (windows.next()) |window_id| {
+                const window = windows.get(window_id);
 
-            pass_encoder.setViewport(0, 0, width, height, 0, 1);
-            pass_encoder.setVertexBuffer(0, fr.vertex_buffer.?, 0, fr.vertex_buffer_size * @sizeOf(imgui.DrawVert));
-            pass_encoder.setIndexBuffer(fr.index_buffer.?, index_format, 0, fr.index_buffer_size * @sizeOf(imgui.DrawIdx));
-            pass_encoder.setPipeline(device_resources.pipeline);
-            pass_encoder.setBindGroup(0, device_resources.common_bind_group, &.{});
+                const width: f32 = @floatFromInt(window.width);
+                const height: f32 = @floatFromInt(window.height);
+                const index_format: gpu.IndexFormat = if (@sizeOf(imgui.DrawIdx) == 2) .uint16 else .uint32;
+
+                pass_encoder.setViewport(0, 0, width, height, 0, 1);
+                pass_encoder.setVertexBuffer(0, fr.vertex_buffer.?, 0, fr.vertex_buffer_size * @sizeOf(imgui.DrawVert));
+                pass_encoder.setIndexBuffer(fr.index_buffer.?, index_format, 0, fr.index_buffer_size * @sizeOf(imgui.DrawIdx));
+                pass_encoder.setPipeline(device_resources.pipeline);
+                pass_encoder.setBindGroup(0, device_resources.common_bind_group, &.{});
+            }
         }
     }
 };

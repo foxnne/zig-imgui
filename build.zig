@@ -68,22 +68,20 @@ pub fn build(b: *std.Build) !void {
     b.installArtifact(lib);
 
     // Example
-    const build_options = b.addOptions();
-
-    const app = try mach.CoreApp.init(b, mach_dep.builder, .{
-        .name = "mach-imgui-example",
-        .src = "examples/example_mach.zig",
+    const exe = b.addExecutable(.{
+        .name = "run",
+        .root_source_file = b.path("examples/main.zig"),
         .target = target,
-        .deps = &[_]std.Build.Module.Import{
-            .{ .name = "imgui", .module = module },
-            .{ .name = "build-options", .module = build_options.createModule() },
-        },
         .optimize = optimize,
     });
-    app.compile.linkLibrary(lib);
+    exe.root_module.addImport("mach", mach_dep.module("mach"));
+    exe.root_module.addImport("imgui", module);
+    exe.linkLibrary(lib);
 
     const run_step = b.step("run", "Run the example");
-    run_step.dependOn(&app.run.step);
+    run_step.dependOn(&b.addRunArtifact(exe).step);
+
+    b.installArtifact(exe);
 
     // Generator
     const generator_exe = b.addExecutable(.{
