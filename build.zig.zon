@@ -8,9 +8,8 @@
     .version = "0.1.0",
     .dependencies = .{
         .mach = .{
-            .path = "../mach-dev/",
-            // .url = "https://pkg.machengine.org/mach/b72f0e11b6d292c2b60789359a61f7ee6d7dc371.tar.gz",
-            // .hash = "122015e1dac4afaf275f7f2adde3814e6a27f5799cbef96bb487ee305f7e33f4dca3",
+            .url = "https://pkg.machengine.org/mach/a10cbc34197e8ebcca2ccb1d67e44a2cee186909.tar.gz",
+            .hash = "1220bd4662837adfb6110a7aa90fe60eebc1e4aba8b3fdfd5c1e366b210257c8a758",
         },
         .mach_freetype = .{
             .url = "https://pkg.machengine.org/mach-freetype/dd5e749e40f08a40bed251a5ae6233308cd07e0d.tar.gz",
