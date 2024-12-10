@@ -131,7 +131,7 @@ const BackendPlatformData = struct {
     }
 
     pub fn processEvent(bd: *BackendPlatformData, event: Core.Event) bool {
-        _ = bd;
+        _ = bd; // autofix
         var io = imgui.getIO();
         switch (event) {
             .key_press, .key_repeat => |data| {
@@ -172,6 +172,10 @@ const BackendPlatformData = struct {
                 io.addMouseWheelEvent(data.xoffset, data.yoffset);
                 return true;
             },
+            .window_resize => |data| {
+                _ = data; // autofix
+
+            },
             //.joystick_connected => {},
             //.joystick_disconnected => {},
             //.framebuffer_resize => {},
@@ -211,8 +215,8 @@ const BackendPlatformData = struct {
             // DisplaySize
             const w: f32 = @floatFromInt(window.width);
             const h: f32 = @floatFromInt(window.height);
-            const display_w: f32 = @floatFromInt(window.width);
-            const display_h: f32 = @floatFromInt(window.height);
+            const display_w: f32 = @floatFromInt(window.framebuffer_width);
+            const display_h: f32 = @floatFromInt(window.framebuffer_height);
 
             io.display_size = imgui.Vec2{ .x = w, .y = h };
 
@@ -590,20 +594,13 @@ const BackendRendererData = struct {
             };
             bd.queue.writeBuffer(device_resources.uniforms, 0, &[_]Uniforms{uniforms});
 
-            var windows = core.windows.slice();
-            while (windows.next()) |window_id| {
-                const window = windows.get(window_id);
+            const index_format: gpu.IndexFormat = if (@sizeOf(imgui.DrawIdx) == 2) .uint16 else .uint32;
 
-                const width: f32 = @floatFromInt(window.width);
-                const height: f32 = @floatFromInt(window.height);
-                const index_format: gpu.IndexFormat = if (@sizeOf(imgui.DrawIdx) == 2) .uint16 else .uint32;
-
-                pass_encoder.setViewport(0, 0, width, height, 0, 1);
-                pass_encoder.setVertexBuffer(0, fr.vertex_buffer.?, 0, fr.vertex_buffer_size * @sizeOf(imgui.DrawVert));
-                pass_encoder.setIndexBuffer(fr.index_buffer.?, index_format, 0, fr.index_buffer_size * @sizeOf(imgui.DrawIdx));
-                pass_encoder.setPipeline(device_resources.pipeline);
-                pass_encoder.setBindGroup(0, device_resources.common_bind_group, &.{});
-            }
+            pass_encoder.setViewport(0, 0, draw_data.display_size.x * draw_data.framebuffer_scale.x, draw_data.display_size.y * draw_data.framebuffer_scale.y, 0, 1);
+            pass_encoder.setVertexBuffer(0, fr.vertex_buffer.?, 0, fr.vertex_buffer_size * @sizeOf(imgui.DrawVert));
+            pass_encoder.setIndexBuffer(fr.index_buffer.?, index_format, 0, fr.index_buffer_size * @sizeOf(imgui.DrawIdx));
+            pass_encoder.setPipeline(device_resources.pipeline);
+            pass_encoder.setBindGroup(0, device_resources.common_bind_group, &.{});
         }
     }
 };
