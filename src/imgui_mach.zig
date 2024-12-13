@@ -1,10 +1,12 @@
 const std = @import("std");
 const imgui = @import("imgui.zig");
-const Core = @import("mach").Core;
-const gpu = @import("mach").gpu;
+const mach = @import("mach");
+const Core = mach.Core;
+const gpu = mach.gpu;
 
 var allocator: std.mem.Allocator = undefined;
 var core: *Core = undefined;
+var timer: mach.time.Timer = undefined;
 
 // ------------------------------------------------------------------------------------------------
 // Public API
@@ -27,6 +29,7 @@ pub fn init(
 ) !void {
     allocator = allocator_;
     core = core_;
+    timer = try mach.time.Timer.start();
 
     var io = imgui.getIO();
     std.debug.assert(io.backend_platform_user_data == null);
@@ -111,7 +114,7 @@ const BackendPlatformData = struct {
 
         // DeltaTime
 
-        io.delta_time = if (core.frame.delta_time) |dt| dt.* else 1.0e-6;
+        io.delta_time = timer.lap();
 
         // WantSetMousePos - TODO
 
@@ -119,11 +122,17 @@ const BackendPlatformData = struct {
         if ((io.config_flags & imgui.ConfigFlags_NoMouseCursorChange) == 0) {
             const imgui_cursor = imgui.getMouseCursor();
 
-            if (io.mouse_draw_cursor or imgui_cursor == imgui.MouseCursor_None) {
-                //core.setCursorMode(.hidden);
-            } else {
-                //core.setCursorMode(.normal);
-                //core.setCursorShape(machCursorShape(imgui_cursor));
+            var windows = core.windows.slice();
+            while (windows.next()) |window_id| {
+                if (io.mouse_draw_cursor or imgui_cursor == imgui.MouseCursor_None) {
+                    if (core.windows.get(window_id, .cursor_mode) != .hidden)
+                        core.windows.set(window_id, .cursor_mode, .hidden);
+                } else {
+                    if (core.windows.get(window_id, .cursor_mode) != .normal)
+                        core.windows.set(window_id, .cursor_mode, .normal);
+
+                    core.windows.set(window_id, .cursor_shape, machCursorShape(imgui_cursor));
+                }
             }
         }
 
@@ -208,6 +217,7 @@ const BackendPlatformData = struct {
         _ = bd;
         var io = imgui.getIO();
 
+        // TODO: handle multiple windows correctly
         var windows = core.windows.slice();
         while (windows.next()) |window_id| {
             const window = core.windows.getValue(window_id);
