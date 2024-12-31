@@ -8,12 +8,12 @@
     .version = "0.1.0",
     .dependencies = .{
         .mach = .{
-            .url = "https://pkg.machengine.org/mach/a10cbc34197e8ebcca2ccb1d67e44a2cee186909.tar.gz",
-            .hash = "1220bd4662837adfb6110a7aa90fe60eebc1e4aba8b3fdfd5c1e366b210257c8a758",
+            .url = "https://pkg.machengine.org/mach/c56d596ea90be5502db7a83940f5cca4cce1494f.tar.gz",
+            .hash = "1220301155ab5b19acce86e70c1e844249a6c617e6e36818cfeb5b5a993acee01ab4",
         },
         .mach_freetype = .{
-            .url = "https://pkg.machengine.org/mach-freetype/dd5e749e40f08a40bed251a5ae6233308cd07e0d.tar.gz",
-            .hash = "12209b2055d213076fa0476de11c5eae1ad5b6fb91789e6bf218686b8f5f4a4114de",
+            .url = "https://pkg.machengine.org/mach-freetype/d63efa5534c17f3a12ed3d327e0ad42a64adc20a.tar.gz",
+            .hash = "1220adfccce3dbc4e4fa8650fdaec110a676f6b8a1462ed6ef422815207f8288e9d2",
             .lazy = true,
         },
         .imgui = .{
