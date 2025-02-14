@@ -59,6 +59,10 @@ pub fn newFrame() !void {
     try BackendRendererData.get().newFrame();
 }
 
+pub fn clearBindgroups() !void {
+    try BackendRendererData.get().clearBindGroups();
+}
+
 pub fn processEvent(event: Core.Event) bool {
     return BackendPlatformData.get().processEvent(event);
 }
@@ -453,6 +457,14 @@ const BackendRendererData = struct {
             bd.device_resources = try DeviceResources.init(bd);
     }
 
+    pub fn clearBindGroups(bd: *BackendRendererData) !void {
+        if (bd.device_resources) |dr| {
+            if (dr.image_bind_groups.count() > 0) {
+                dr.image_bind_groups.clearRetainingCapacity();
+            }
+        }
+    }
+
     pub fn render(bd: *BackendRendererData, draw_data: *imgui.DrawData, pass_encoder: *gpu.RenderPassEncoder) !void {
         if (draw_data.display_size.x <= 0.0 or draw_data.display_size.y <= 0.0)
             return;
@@ -536,26 +548,22 @@ const BackendRendererData = struct {
                         // TODO - imgui.DrawCallback_ResetRenderState not generating yet
                         cmd.user_callback.?(cmd_list, cmd);
                     } else {
+
                         // Texture
                         const tex_id = cmd.getTexID();
+                        const entry = try device_resources.image_bind_groups.getOrPut(allocator, tex_id);
+                        if (!entry.found_existing) {
+                            entry.value_ptr.* = bd.device.createBindGroup(
+                                &gpu.BindGroup.Descriptor.init(.{
+                                    .layout = device_resources.image_bind_group_layout,
+                                    .entries = &[_]gpu.BindGroup.Entry{
+                                        .{ .binding = 0, .texture_view = @ptrCast(tex_id), .size = 0 },
+                                    },
+                                }),
+                            );
+                        }
+                        const bind_group = entry.value_ptr.*;
 
-                        // foxnne - This cache was keeping around old bindgroups after the textures were released
-                        // which meant textures were never unloaded from the gpu
-                        // TODO: for now, just recreate the bindgroup each call, but in the future, sysgpu could
-                        // notify when textures are deleted
-
-                        //const entry = try device_resources.image_bind_groups.getOrPut(allocator, tex_id);
-                        //if (!entry.found_existing) {
-                        const bind_group = bd.device.createBindGroup(
-                            &gpu.BindGroup.Descriptor.init(.{
-                                .layout = device_resources.image_bind_group_layout,
-                                .entries = &[_]gpu.BindGroup.Entry{
-                                    .{ .binding = 0, .texture_view = @ptrCast(tex_id), .size = 0 },
-                                },
-                            }),
-                        );
-                        defer bind_group.release();
-                        //}
                         pass_encoder.setBindGroup(1, bind_group, &.{});
 
                         // Scissor
