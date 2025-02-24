@@ -458,7 +458,7 @@ const BackendRendererData = struct {
     }
 
     pub fn clearBindGroups(bd: *BackendRendererData) !void {
-        if (bd.device_resources) |dr| {
+        if (bd.device_resources) |*dr| {
             if (dr.image_bind_groups.count() > 0) {
                 dr.image_bind_groups.clearRetainingCapacity();
             }
