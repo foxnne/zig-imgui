@@ -59,8 +59,12 @@ pub fn newFrame() !void {
     try BackendRendererData.get().newFrame();
 }
 
-pub fn clearBindgroups() !void {
-    try BackendRendererData.get().clearBindGroups();
+pub fn clearBindgroups() void {
+    BackendRendererData.get().clearBindGroups();
+}
+
+pub fn clearBindGroup(id: imgui.TextureID) void {
+    BackendRendererData.get().clearBindGroup(id);
 }
 
 pub fn processEvent(event: Core.Event) bool {
@@ -457,11 +461,20 @@ const BackendRendererData = struct {
             bd.device_resources = try DeviceResources.init(bd);
     }
 
-    pub fn clearBindGroups(bd: *BackendRendererData) !void {
+    pub fn clearBindGroups(bd: *BackendRendererData) void {
         if (bd.device_resources) |*dr| {
             if (dr.image_bind_groups.count() > 0) {
                 dr.image_bind_groups.clearRetainingCapacity();
             }
+        }
+    }
+
+    pub fn clearBindGroup(bd: *BackendRendererData, id: imgui.TextureID) void {
+        if (bd.device_resources) |*dr| {
+            if (dr.image_bind_groups.get(id)) |bind_group| {
+                bind_group.release();
+            }
+            _ = dr.image_bind_groups.swapRemove(id);
         }
     }
 
