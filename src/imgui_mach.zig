@@ -55,8 +55,31 @@ pub fn shutdown() void {
 }
 
 pub fn newFrame() !void {
+    updateCursor();
     try BackendPlatformData.get().newFrame();
     try BackendRendererData.get().newFrame();
+}
+
+pub fn updateCursor() void {
+    const io = imgui.getIO();
+
+    // MouseCursor
+    if ((io.config_flags & imgui.ConfigFlags_NoMouseCursorChange) == 0) {
+        const imgui_cursor = imgui.getMouseCursor();
+
+        var windows = core.windows.slice();
+        while (windows.next()) |window_id| {
+            if (io.mouse_draw_cursor or imgui_cursor == imgui.MouseCursor_None) {
+                if (core.windows.get(window_id, .cursor_mode) != .hidden)
+                    core.windows.set(window_id, .cursor_mode, .hidden);
+            } else {
+                if (core.windows.get(window_id, .cursor_mode) != .normal)
+                    core.windows.set(window_id, .cursor_mode, .normal);
+
+                core.windows.set(window_id, .cursor_shape, machCursorShape(imgui_cursor));
+            }
+        }
+    }
 }
 
 pub fn clearBindgroups() void {
@@ -73,6 +96,21 @@ pub fn processEvent(event: Core.Event) bool {
 
 pub fn renderDrawData(draw_data: *imgui.DrawData, pass_encoder: *gpu.RenderPassEncoder) !void {
     try BackendRendererData.get().render(draw_data, pass_encoder);
+}
+
+fn machCursorShape(imgui_cursor: imgui.MouseCursor) Core.CursorShape {
+    return switch (imgui_cursor) {
+        imgui.MouseCursor_Arrow => .arrow,
+        imgui.MouseCursor_TextInput => .ibeam,
+        imgui.MouseCursor_ResizeAll => .resize_all,
+        imgui.MouseCursor_ResizeNS => .resize_ns,
+        imgui.MouseCursor_ResizeEW => .resize_ew,
+        imgui.MouseCursor_ResizeNESW => .resize_nesw,
+        imgui.MouseCursor_ResizeNWSE => .resize_nwse,
+        imgui.MouseCursor_Hand => .pointing_hand,
+        imgui.MouseCursor_NotAllowed => .not_allowed,
+        else => unreachable,
+    };
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -126,23 +164,23 @@ const BackendPlatformData = struct {
 
         // WantSetMousePos - TODO
 
-        // MouseCursor
-        if ((io.config_flags & imgui.ConfigFlags_NoMouseCursorChange) == 0) {
-            const imgui_cursor = imgui.getMouseCursor();
+        // // MouseCursor
+        // if ((io.config_flags & imgui.ConfigFlags_NoMouseCursorChange) == 0) {
+        //     const imgui_cursor = imgui.getMouseCursor();
 
-            var windows = core.windows.slice();
-            while (windows.next()) |window_id| {
-                if (io.mouse_draw_cursor or imgui_cursor == imgui.MouseCursor_None) {
-                    if (core.windows.get(window_id, .cursor_mode) != .hidden)
-                        core.windows.set(window_id, .cursor_mode, .hidden);
-                } else {
-                    if (core.windows.get(window_id, .cursor_mode) != .normal)
-                        core.windows.set(window_id, .cursor_mode, .normal);
+        //     var windows = core.windows.slice();
+        //     while (windows.next()) |window_id| {
+        //         if (io.mouse_draw_cursor or imgui_cursor == imgui.MouseCursor_None) {
+        //             if (core.windows.get(window_id, .cursor_mode) != .hidden)
+        //                 core.windows.set(window_id, .cursor_mode, .hidden);
+        //         } else {
+        //             if (core.windows.get(window_id, .cursor_mode) != .normal)
+        //                 core.windows.set(window_id, .cursor_mode, .normal);
 
-                    core.windows.set(window_id, .cursor_shape, machCursorShape(imgui_cursor));
-                }
-            }
-        }
+        //             core.windows.set(window_id, .cursor_shape, machCursorShape(imgui_cursor));
+        //         }
+        //     }
+        // }
 
         // Gamepads - TODO
     }
@@ -375,21 +413,6 @@ const BackendPlatformData = struct {
 
             .unknown => imgui.Key_None,
             else => imgui.Key_None,
-        };
-    }
-
-    fn machCursorShape(imgui_cursor: imgui.MouseCursor) Core.CursorShape {
-        return switch (imgui_cursor) {
-            imgui.MouseCursor_Arrow => .arrow,
-            imgui.MouseCursor_TextInput => .ibeam,
-            imgui.MouseCursor_ResizeAll => .resize_all,
-            imgui.MouseCursor_ResizeNS => .resize_ns,
-            imgui.MouseCursor_ResizeEW => .resize_ew,
-            imgui.MouseCursor_ResizeNESW => .resize_nesw,
-            imgui.MouseCursor_ResizeNWSE => .resize_nwse,
-            imgui.MouseCursor_Hand => .pointing_hand,
-            imgui.MouseCursor_NotAllowed => .not_allowed,
-            else => unreachable,
         };
     }
 };
